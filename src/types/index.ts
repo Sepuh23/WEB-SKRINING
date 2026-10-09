@@ -123,3 +123,32 @@ export interface Appointment {
   stressLevel?: 'rendah' | 'sedang' | 'tinggi';
   createdAt: string;
 }
+
+export interface LiveChatMessage {
+  id: string;
+  channelId: string; // e.g. "chat_u1_u3"
+  senderId: string;
+  senderName: string;
+  senderRole: UserRoleType;
+  senderAvatar?: string;
+  recipientId: string;
+  recipientName: string;
+  recipientRole: UserRoleType;
+  text: string;
+  time: string;
+  timestamp: number;
+  categoryTag?: string;
+  isRead?: boolean;
+}
+
+export interface ChatParticipant {
+  id: string;
+  name: string;
+  role: UserRoleType;
+  roleTitle: string;
+  avatar: string;
+  schoolOrOrg: string;
+  isOnline: boolean;
+  lastSeen?: string;
+  specialty?: string[];
+}

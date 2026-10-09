@@ -1,4 +1,6 @@
 import express from 'express';
+import http from 'http';
+import { WebSocketServer, WebSocket } from 'ws';
 import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
 import path from 'path';
@@ -13,6 +15,7 @@ const app = express();
 app.use(express.json());
 
 const port = process.env.PORT || 3000;
+const server = http.createServer(app);
 
 // Initialize Gemini Client server-side
 const apiKey = process.env.GEMINI_API_KEY;
@@ -412,6 +415,384 @@ app.post('/api/affirmation', async (req, res) => {
   }
 });
 
+// ==========================================
+// REAL-TIME CONSULTATION CHAT (WEBSOCKET & REST)
+// Siswa <-> Guru BK <-> Psikolog Realtime Sync
+// ==========================================
+
+export interface LiveChatMessage {
+  id: string;
+  channelId: string;
+  senderId: string;
+  senderName: string;
+  senderRole: 'siswa' | 'guru_bk' | 'psikolog' | 'admin';
+  senderAvatar?: string;
+  recipientId: string;
+  recipientName: string;
+  recipientRole: 'siswa' | 'guru_bk' | 'psikolog' | 'admin';
+  text: string;
+  time: string;
+  timestamp: number;
+  categoryTag?: string;
+  isRead?: boolean;
+}
+
+const INITIAL_LIVE_MESSAGES: LiveChatMessage[] = [
+  {
+    id: 'msg-seed-1',
+    channelId: 'chat_u1_u3',
+    senderId: 'u1',
+    senderName: 'Farel (Siswa 1)',
+    senderRole: 'siswa',
+    recipientId: 'u3',
+    recipientName: 'Ibu Dra. Ratna Pratiwi, M.Pd',
+    recipientRole: 'guru_bk',
+    text: 'Selamat pagi Ibu Ratna, saya mau konsultasi terkait rasa cemas berlebih jelang Try Out Ujian akhir...',
+    time: '08:45',
+    timestamp: Date.now() - 3600000 * 3,
+    categoryTag: 'Stres Akademik & Ujian',
+    isRead: true,
+  },
+  {
+    id: 'msg-seed-2',
+    channelId: 'chat_u1_u3',
+    senderId: 'u3',
+    senderName: 'Ibu Dra. Ratna Pratiwi, M.Pd',
+    senderRole: 'guru_bk',
+    recipientId: 'u1',
+    recipientName: 'Farel (Siswa 1)',
+    recipientRole: 'siswa',
+    text: 'Selamat pagi Farel. Terima kasih sudah berani menghubungi Ibu ya. Perasaan cemas sebelum ujian itu wajar. Mari kita diskusikan solusinya.',
+    time: '08:50',
+    timestamp: Date.now() - 3600000 * 2.8,
+    categoryTag: 'Stres Akademik & Ujian',
+    isRead: true,
+  },
+  {
+    id: 'msg-seed-3',
+    channelId: 'chat_u1_u3',
+    senderId: 'u1',
+    senderName: 'Farel (Siswa 1)',
+    senderRole: 'siswa',
+    recipientId: 'u3',
+    recipientName: 'Ibu Dra. Ratna Pratiwi, M.Pd',
+    recipientRole: 'guru_bk',
+    text: 'Terima kasih Bu Ratna, apakah jadwal konsultasi tatap muka besok jam 10 pagi di Ruang BK masih bisa Bu?',
+    time: '09:05',
+    timestamp: Date.now() - 3600000 * 2.5,
+    categoryTag: 'Stres Akademik & Ujian',
+    isRead: true,
+  },
+  {
+    id: 'msg-seed-4',
+    channelId: 'chat_u1_u3',
+    senderId: 'u3',
+    senderName: 'Ibu Dra. Ratna Pratiwi, M.Pd',
+    senderRole: 'guru_bk',
+    recipientId: 'u1',
+    recipientName: 'Farel (Siswa 1)',
+    recipientRole: 'siswa',
+    text: 'Bisa Farel, jadwalmu sudah Ibu konfirmasi di sistem. Sampai bertemu besok jam 10.00 WIB di Ruang BK ya.',
+    time: '09:12',
+    timestamp: Date.now() - 3600000 * 2,
+    categoryTag: 'Stres Akademik & Ujian',
+    isRead: true,
+  },
+  {
+    id: 'msg-seed-5',
+    channelId: 'chat_u2_u3',
+    senderId: 'u2',
+    senderName: 'Ayu Lestari (Siswa 2)',
+    senderRole: 'siswa',
+    recipientId: 'u3',
+    recipientName: 'Ibu Dra. Ratna Pratiwi, M.Pd',
+    recipientRole: 'guru_bk',
+    text: 'Halo Bu Ratna, saya bingung menentukan pilihan jurusan kuliah antara Teknik atau Desain...',
+    time: '11:20',
+    timestamp: Date.now() - 3600000 * 5,
+    categoryTag: 'Pengembangan Diri & Karir',
+    isRead: true,
+  },
+  {
+    id: 'msg-seed-6',
+    channelId: 'chat_u2_u3',
+    senderId: 'u3',
+    senderName: 'Ibu Dra. Ratna Pratiwi, M.Pd',
+    senderRole: 'guru_bk',
+    recipientId: 'u2',
+    recipientName: 'Ayu Lestari (Siswa 2)',
+    recipientRole: 'siswa',
+    text: 'Halo Ayu! Bagus sekali kamu sudah memikirkan masa depanmu. Ayo kita bedah minat dan hasil tes bakatmu bersama di sini.',
+    time: '11:28',
+    timestamp: Date.now() - 3600000 * 4.8,
+    categoryTag: 'Pengembangan Diri & Karir',
+    isRead: true,
+  },
+  {
+    id: 'msg-seed-7',
+    channelId: 'chat_u1_u4',
+    senderId: 'u1',
+    senderName: 'Farel (Siswa 1)',
+    senderRole: 'siswa',
+    recipientId: 'u4',
+    recipientName: 'Maya Indriani, M.Psi., Psikolog',
+    recipientRole: 'psikolog',
+    text: 'Selamat siang Mbak Maya, saya ingin konsultasi rujukan terkait sering merasa cemas tiba-tiba dan susah tidur nyenyak...',
+    time: '13:10',
+    timestamp: Date.now() - 3600000 * 4,
+    categoryTag: 'Kecemasan / Burnout',
+    isRead: true,
+  },
+  {
+    id: 'msg-seed-8',
+    channelId: 'chat_u1_u4',
+    senderId: 'u4',
+    senderName: 'Maya Indriani, M.Psi., Psikolog',
+    senderRole: 'psikolog',
+    recipientId: 'u1',
+    recipientName: 'Farel (Siswa 1)',
+    recipientRole: 'siswa',
+    text: 'Halo Farel, selamat siang. Terima kasih sudah menghubungi saya. Gejala tersebut sangat umum dialami dan bisa kita urai bersama melalui konseling terstruktur.',
+    time: '13:25',
+    timestamp: Date.now() - 3600000 * 3.7,
+    categoryTag: 'Kecemasan / Burnout',
+    isRead: true,
+  },
+  {
+    id: 'msg-seed-9',
+    channelId: 'chat_u2_u4',
+    senderId: 'u2',
+    senderName: 'Ayu Lestari (Siswa 2)',
+    senderRole: 'siswa',
+    recipientId: 'u4',
+    recipientName: 'Maya Indriani, M.Psi., Psikolog',
+    recipientRole: 'psikolog',
+    text: 'Selamat siang Mbak Maya, saya ingin konsultasi terkait kecemasan berat saat presentasi di depan kelas...',
+    time: '14:00',
+    timestamp: Date.now() - 3600000 * 2,
+    categoryTag: 'Kecemasan / Burnout',
+    isRead: true,
+  },
+  {
+    id: 'msg-seed-10',
+    channelId: 'chat_u2_u4',
+    senderId: 'u4',
+    senderName: 'Maya Indriani, M.Psi., Psikolog',
+    senderRole: 'psikolog',
+    recipientId: 'u2',
+    recipientName: 'Ayu Lestari (Siswa 2)',
+    recipientRole: 'siswa',
+    text: 'Halo Ayu, rasa gugup saat presentasi bisa kita redakan dengan latihan desensitisasi dan pernapasan ritmis. Nanti kita coba bareng-bareng di sesi ya.',
+    time: '14:15',
+    timestamp: Date.now() - 3600000 * 1.8,
+    categoryTag: 'Kecemasan / Burnout',
+    isRead: true,
+  },
+];
+
+let liveChatStore: LiveChatMessage[] = [...INITIAL_LIVE_MESSAGES];
+
+interface ExtendedWebSocket extends WebSocket {
+  userId?: string;
+  userName?: string;
+  userRole?: string;
+  isAlive?: boolean;
+}
+
+const wss = new WebSocketServer({ server, path: '/ws' });
+
+function getOnlineUserIds(): string[] {
+  const ids: string[] = [];
+  wss.clients.forEach((c) => {
+    const ext = c as ExtendedWebSocket;
+    if (ext.readyState === WebSocket.OPEN && ext.userId && !ids.includes(ext.userId)) {
+      ids.push(ext.userId);
+    }
+  });
+  return ids;
+}
+
+function broadcastWS(data: any) {
+  const payload = JSON.stringify(data);
+  wss.clients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(payload);
+    }
+  });
+}
+
+wss.on('connection', (ws: ExtendedWebSocket) => {
+  ws.isAlive = true;
+
+  ws.on('pong', () => {
+    ws.isAlive = true;
+  });
+
+  ws.on('message', (rawData) => {
+    try {
+      const data = JSON.parse(rawData.toString());
+
+      if (data.type === 'auth') {
+        ws.userId = data.userId;
+        ws.userName = data.userName;
+        ws.userRole = data.userRole;
+        const online = getOnlineUserIds();
+        ws.send(JSON.stringify({ type: 'auth_success', userId: ws.userId, onlineUsers: online }));
+        broadcastWS({ type: 'presence_update', onlineUsers: online });
+        return;
+      }
+
+      if (data.type === 'ping') {
+        ws.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }));
+        return;
+      }
+
+      if (data.type === 'send_message') {
+        const { message } = data;
+        if (!message || !message.text || !message.recipientId) return;
+
+        const canonicalChannel = message.channelId || `chat_${[message.senderId, message.recipientId].sort().join('_')}`;
+        const newMsg: LiveChatMessage = {
+          id: message.id || `msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          channelId: canonicalChannel,
+          senderId: message.senderId,
+          senderName: message.senderName,
+          senderRole: message.senderRole,
+          senderAvatar: message.senderAvatar,
+          recipientId: message.recipientId,
+          recipientName: message.recipientName,
+          recipientRole: message.recipientRole,
+          text: message.text,
+          time: message.time || new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+          timestamp: message.timestamp || Date.now(),
+          categoryTag: message.categoryTag,
+          isRead: false,
+        };
+
+        // Guard against duplicate message IDs (idempotency)
+        const exists = liveChatStore.some((m) => m.id === newMsg.id);
+        if (!exists) {
+          liveChatStore.push(newMsg);
+        }
+
+        // Broadcast to all clients
+        broadcastWS({ type: 'new_message', message: newMsg });
+        return;
+      }
+
+      if (data.type === 'get_messages') {
+        const channelId = data.channelId;
+        const userId = data.userId;
+        let filtered = liveChatStore;
+        if (channelId) {
+          filtered = filtered.filter((m) => m.channelId === channelId);
+        } else if (userId) {
+          filtered = filtered.filter((m) => m.senderId === userId || m.recipientId === userId);
+        }
+        ws.send(JSON.stringify({ type: 'messages_history', channelId, userId, messages: filtered }));
+        return;
+      }
+
+      if (data.type === 'mark_read') {
+        const { channelId, readerId } = data;
+        liveChatStore = liveChatStore.map((m) => {
+          if (m.channelId === channelId && m.recipientId === readerId) {
+            return { ...m, isRead: true };
+          }
+          return m;
+        });
+        broadcastWS({ type: 'messages_read', channelId, readerId });
+        return;
+      }
+
+      if (data.type === 'typing') {
+        broadcastWS({
+          type: 'typing',
+          senderId: data.senderId,
+          recipientId: data.recipientId,
+          isTyping: data.isTyping,
+        });
+        return;
+      }
+    } catch (err) {
+      console.error('WebSocket message parsing error:', err);
+    }
+  });
+
+  ws.on('close', () => {
+    const online = getOnlineUserIds();
+    broadcastWS({ type: 'presence_update', onlineUsers: online });
+  });
+});
+
+// Periodic ping to keep alive
+const pingInterval = setInterval(() => {
+  wss.clients.forEach((client) => {
+    const ext = client as ExtendedWebSocket;
+    if (ext.isAlive === false) return ext.terminate();
+    ext.isAlive = false;
+    ext.ping();
+  });
+}, 30000);
+
+wss.on('close', () => {
+  clearInterval(pingInterval);
+});
+
+// REST Endpoints for Messages & Fallback
+app.get('/api/consultation/messages', (req, res) => {
+  const { channelId, userId } = req.query;
+  let results = liveChatStore;
+  if (channelId && typeof channelId === 'string') {
+    results = results.filter((m) => m.channelId === channelId);
+  } else if (userId && typeof userId === 'string') {
+    results = results.filter((m) => m.senderId === userId || m.recipientId === userId);
+  }
+  res.json({ success: true, count: results.length, messages: results });
+});
+
+app.post('/api/consultation/messages', (req, res) => {
+  try {
+    const { message } = req.body;
+    if (!message || !message.text || !message.senderId || !message.recipientId) {
+      res.status(400).json({ error: 'Invalid message payload' });
+      return;
+    }
+
+    const canonicalChannel = message.channelId || `chat_${[message.senderId, message.recipientId].sort().join('_')}`;
+    const newMsg: LiveChatMessage = {
+      id: message.id || `msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      channelId: canonicalChannel,
+      senderId: message.senderId,
+      senderName: message.senderName,
+      senderRole: message.senderRole,
+      senderAvatar: message.senderAvatar,
+      recipientId: message.recipientId,
+      recipientName: message.recipientName,
+      recipientRole: message.recipientRole,
+      text: message.text,
+      time: message.time || new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+      timestamp: message.timestamp || Date.now(),
+      categoryTag: message.categoryTag,
+      isRead: false,
+    };
+
+    const exists = liveChatStore.some((m) => m.id === newMsg.id);
+    if (!exists) {
+      liveChatStore.push(newMsg);
+    }
+
+    broadcastWS({ type: 'new_message', message: newMsg });
+    res.json({ success: true, message: newMsg });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to post message' });
+  }
+});
+
+app.get('/api/consultation/online-users', (_req, res) => {
+  res.json({ success: true, onlineUsers: getOnlineUserIds() });
+});
+
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
@@ -427,8 +808,8 @@ async function startServer() {
     });
   }
 
-  app.listen(Number(port), '0.0.0.0', () => {
-    console.log(`PSY-VIBE Server listening on http://0.0.0.0:${port}`);
+  server.listen(Number(port), '0.0.0.0', () => {
+    console.log(`PSY-VIBE Server listening on http://0.0.0.0:${port} (HTTP & WebSocket /ws)`);
   });
 }
 

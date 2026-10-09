@@ -10,6 +10,8 @@ interface HeaderProps {
   currentStudent: StudentProfile | null;
   onLocationUpdate?: (coords: { lat: number; lng: number; accuracy: number; city: string; source: string }) => void;
   onOpenDirectory?: () => void;
+  onOpenEditProfile?: () => void;
+  onLogout?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -20,8 +22,20 @@ export const Header: React.FC<HeaderProps> = ({
   currentStudent,
   onLocationUpdate,
   onOpenDirectory,
+  onOpenEditProfile,
+  onLogout,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const getDashboardInfo = () => {
+    if (!currentStudent) return { label: 'Dashboard', icon: 'dashboard', color: 'bg-[#38bdf8]' };
+    if (currentStudent.userRoleType === 'guru_bk') return { label: 'Portal Guru BK', icon: 'school', color: 'bg-amber-600' };
+    if (currentStudent.userRoleType === 'psikolog') return { label: 'Portal Psikolog', icon: 'psychology', color: 'bg-purple-600' };
+    if (currentStudent.userRoleType === 'admin') return { label: 'Portal Admin', icon: 'admin_panel_settings', color: 'bg-slate-900' };
+    return { label: 'Dashboard Siswa', icon: 'dashboard', color: 'bg-[#0284c7]' };
+  };
+
+  const dashInfo = getDashboardInfo();
 
   return (
     <header className="fixed top-0 left-0 right-0 w-full z-50 bg-[#ffffff]/90 backdrop-blur-xl shadow-[0_2px_12px_rgba(0,0,0,0.06)] border-b border-[#f0f3ff]">
@@ -97,14 +111,14 @@ export const Header: React.FC<HeaderProps> = ({
           {currentStudent && onOpenDashboard && (
             <button
               onClick={onOpenDashboard}
-              className={`px-4 py-1.5 rounded-full text-[14px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
+              className={`px-4 py-1.5 rounded-full text-[14px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                 activeTab === 'dashboard'
-                  ? 'bg-[#38bdf8] text-white shadow-xs'
+                  ? `${dashInfo.color} text-white shadow-xs`
                   : 'text-[#00668a] hover:bg-[#dee8ff]'
               }`}
             >
-              <span className="material-symbols-outlined text-[16px]">dashboard</span>
-              Dashboard
+              <span className="material-symbols-outlined text-[16px]">{dashInfo.icon}</span>
+              <span>{dashInfo.label}</span>
             </button>
           )}
         </nav>
@@ -116,10 +130,20 @@ export const Header: React.FC<HeaderProps> = ({
               {onOpenDashboard && (
                 <button
                   onClick={onOpenDashboard}
-                  className="hidden sm:inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-[#38bdf8] text-white hover:opacity-95 font-bold text-[13px] shadow-xs transition-all cursor-pointer"
+                  className={`hidden sm:inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full ${dashInfo.color} text-white hover:opacity-95 font-bold text-[13px] shadow-xs transition-all cursor-pointer`}
                 >
-                  <span className="material-symbols-outlined text-[16px]">dashboard</span>
-                  Dashboard
+                  <span className="material-symbols-outlined text-[16px]">{dashInfo.icon}</span>
+                  <span>{dashInfo.label}</span>
+                </button>
+              )}
+              {onOpenEditProfile && (
+                <button
+                  onClick={onOpenEditProfile}
+                  className="hidden sm:inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#e0f2fe] text-[#0284c7] hover:bg-[#bae6fd] font-bold text-[12px] transition-all cursor-pointer"
+                  title="Edit Nama, Username & Password Saya"
+                >
+                  <span className="material-symbols-outlined text-[16px]">manage_accounts</span>
+                  <span>Edit Akun</span>
                 </button>
               )}
               <button
@@ -141,6 +165,16 @@ export const Header: React.FC<HeaderProps> = ({
                   </span>
                 </div>
               </button>
+              {onLogout && (
+                <button
+                  onClick={onLogout}
+                  className="hidden sm:inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-rose-50 text-rose-700 hover:bg-rose-100 font-bold text-[12px] border border-rose-200 transition-all cursor-pointer"
+                  title="Keluar dari akun"
+                >
+                  <span className="material-symbols-outlined text-[15px]">logout</span>
+                  <span>Keluar</span>
+                </button>
+              )}
             </>
           ) : (
             <>

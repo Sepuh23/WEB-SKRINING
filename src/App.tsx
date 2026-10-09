@@ -13,6 +13,7 @@ import { GuruBKPortal } from './components/GuruBKPortal';
 import { PsikologPortal } from './components/PsikologPortal';
 import { AdminPortal } from './components/AdminPortal';
 import { AppointmentBookingModal } from './components/AppointmentBookingModal';
+import { EditProfileModal } from './components/EditProfileModal';
 
 import { VibeBotCurhatModal } from './components/VibeBotCurhatModal';
 import { DualSensingScreeningModal } from './components/DualSensingScreeningModal';
@@ -55,6 +56,7 @@ export default function App() {
   const [isDirectoryOpen, setIsDirectoryOpen] = useState(false);
   const [isEmergencyOpen, setIsEmergencyOpen] = useState(false);
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
 
   // Appointment Booking Modal state
   const [isBookingOpen, setIsBookingOpen] = useState(false);
@@ -155,6 +157,107 @@ export default function App() {
       return null;
     }
   });
+
+  const handleUpdateProfile = (updatedData: {
+    name: string;
+    username: string;
+    password?: string;
+    school?: string;
+    email?: string;
+    phone?: string;
+    avatar?: string;
+  }) => {
+    if (!currentStudent) return;
+
+    const updatedProfile: StudentProfile = {
+      ...currentStudent,
+      name: updatedData.name,
+      username: updatedData.username,
+      school: updatedData.school !== undefined ? updatedData.school : currentStudent.school,
+      email: updatedData.email !== undefined ? updatedData.email : currentStudent.email,
+      phone: updatedData.phone !== undefined ? updatedData.phone : currentStudent.phone,
+      avatar: updatedData.avatar ? updatedData.avatar : currentStudent.avatar,
+    };
+
+    setCurrentStudent(updatedProfile);
+    try {
+      localStorage.setItem('psy_vibe_active_user', JSON.stringify(updatedProfile));
+    } catch {}
+
+    // Update matching user in users list
+    setUsers((prev) => {
+      const updatedList = prev.map((u) => {
+        if (
+          u.id === currentStudent.id ||
+          u.username === currentStudent.username ||
+          (currentStudent.email && u.email === currentStudent.email)
+        ) {
+          return {
+            ...u,
+            name: updatedData.name,
+            username: updatedData.username,
+            password: updatedData.password ? updatedData.password : u.password,
+            school: updatedData.school !== undefined ? updatedData.school : u.school,
+            email: updatedData.email !== undefined ? updatedData.email : u.email,
+            phone: updatedData.phone !== undefined ? updatedData.phone : u.phone,
+            avatar: updatedData.avatar ? updatedData.avatar : u.avatar,
+          };
+        }
+        return u;
+      });
+
+      try {
+        localStorage.setItem('psy_vibe_users', JSON.stringify(updatedList));
+      } catch {}
+      return updatedList;
+    });
+  };
+
+  const handleUpdateUserAccount = (updatedUser: UserAccount) => {
+    setUsers((prev) => {
+      const updatedList = prev.map((u) => (u.id === updatedUser.id ? updatedUser : u));
+      try {
+        localStorage.setItem('psy_vibe_users', JSON.stringify(updatedList));
+      } catch {}
+      return updatedList;
+    });
+
+    if (currentStudent && (currentStudent.id === updatedUser.id || currentStudent.username === updatedUser.username)) {
+      const updatedProfile: StudentProfile = {
+        ...currentStudent,
+        name: updatedUser.name,
+        username: updatedUser.username,
+        school: updatedUser.school,
+        userRoleType: updatedUser.userRoleType,
+        role: updatedUser.role,
+        avatar: updatedUser.avatar,
+      };
+      setCurrentStudent(updatedProfile);
+      try {
+        localStorage.setItem('psy_vibe_active_user', JSON.stringify(updatedProfile));
+      } catch {}
+    }
+  };
+
+  const handleAddUserAccount = (newUser: UserAccount) => {
+    setUsers((prev) => {
+      const updatedList = [...prev, newUser];
+      try {
+        localStorage.setItem('psy_vibe_users', JSON.stringify(updatedList));
+      } catch {}
+      return updatedList;
+    });
+  };
+
+  const handleDeleteUserAccount = (userId: string) => {
+    setUsers((prev) => {
+      const updatedList = prev.filter((u) => u.id !== userId);
+      try {
+        localStorage.setItem('psy_vibe_users', JSON.stringify(updatedList));
+      } catch {}
+      return updatedList;
+    });
+  };
 
   // Ensure default users exist in localStorage on mount
   useEffect(() => {
@@ -289,40 +392,76 @@ export default function App() {
     // Render Portal based on User Role Type
     if (roleType === 'guru_bk') {
       return (
-        <GuruBKPortal
-          currentGuru={currentStudent}
-          appointments={appointments}
-          onUpdateAppointmentStatus={handleUpdateAppointmentStatus}
-          onNavigateHome={() => setCurrentView('landing')}
-          onLogout={handleLogout}
-          onSwitchRole={handleSwitchRole}
-        />
+        <>
+          <GuruBKPortal
+            currentGuru={currentStudent}
+            appointments={appointments}
+            onUpdateAppointmentStatus={handleUpdateAppointmentStatus}
+            onNavigateHome={() => setCurrentView('landing')}
+            onLogout={handleLogout}
+            onSwitchRole={handleSwitchRole}
+            onOpenEditProfile={() => setIsEditProfileOpen(true)}
+          />
+          {currentStudent && (
+            <EditProfileModal
+              isOpen={isEditProfileOpen}
+              onClose={() => setIsEditProfileOpen(false)}
+              currentUser={currentStudent}
+              onUpdateProfile={handleUpdateProfile}
+            />
+          )}
+        </>
       );
     }
 
     if (roleType === 'psikolog') {
       return (
-        <PsikologPortal
-          currentPsikolog={currentStudent}
-          appointments={appointments}
-          onUpdateAppointmentStatus={handleUpdateAppointmentStatus}
-          onNavigateHome={() => setCurrentView('landing')}
-          onLogout={handleLogout}
-          onSwitchRole={handleSwitchRole}
-        />
+        <>
+          <PsikologPortal
+            currentPsikolog={currentStudent}
+            appointments={appointments}
+            onUpdateAppointmentStatus={handleUpdateAppointmentStatus}
+            onNavigateHome={() => setCurrentView('landing')}
+            onLogout={handleLogout}
+            onSwitchRole={handleSwitchRole}
+            onOpenEditProfile={() => setIsEditProfileOpen(true)}
+          />
+          {currentStudent && (
+            <EditProfileModal
+              isOpen={isEditProfileOpen}
+              onClose={() => setIsEditProfileOpen(false)}
+              currentUser={currentStudent}
+              onUpdateProfile={handleUpdateProfile}
+            />
+          )}
+        </>
       );
     }
 
     if (roleType === 'admin') {
       return (
-        <AdminPortal
-          currentAdmin={currentStudent}
-          appointments={appointments}
-          users={users}
-          onNavigateHome={() => setCurrentView('landing')}
-          onLogout={handleLogout}
-          onSwitchRole={handleSwitchRole}
-        />
+        <>
+          <AdminPortal
+            currentAdmin={currentStudent}
+            appointments={appointments}
+            users={users}
+            onNavigateHome={() => setCurrentView('landing')}
+            onLogout={handleLogout}
+            onSwitchRole={handleSwitchRole}
+            onOpenEditProfile={() => setIsEditProfileOpen(true)}
+            onUpdateUserAccount={handleUpdateUserAccount}
+            onAddUserAccount={handleAddUserAccount}
+            onDeleteUserAccount={handleDeleteUserAccount}
+          />
+          {currentStudent && (
+            <EditProfileModal
+              isOpen={isEditProfileOpen}
+              onClose={() => setIsEditProfileOpen(false)}
+              currentUser={currentStudent}
+              onUpdateProfile={handleUpdateProfile}
+            />
+          )}
+        </>
       );
     }
 
@@ -341,7 +480,17 @@ export default function App() {
           onOpenEmergency={() => setIsEmergencyOpen(true)}
           onNavigateHome={() => setCurrentView('landing')}
           onLogout={handleLogout}
+          onOpenEditProfile={() => setIsEditProfileOpen(true)}
         />
+
+        {currentStudent && (
+          <EditProfileModal
+            isOpen={isEditProfileOpen}
+            onClose={() => setIsEditProfileOpen(false)}
+            currentUser={currentStudent}
+            onUpdateProfile={handleUpdateProfile}
+          />
+        )}
 
         {/* Global Floating Appointment Shortcut Button for Siswa */}
         <div className="fixed bottom-24 right-6 z-40 flex items-center gap-2">
@@ -449,6 +598,8 @@ export default function App() {
         currentStudent={currentStudent}
         onLocationUpdate={(loc) => setSharedLocation(loc)}
         onOpenDirectory={() => setIsDirectoryOpen(true)}
+        onOpenEditProfile={() => setIsEditProfileOpen(true)}
+        onLogout={handleLogout}
       />
 
       {/* Main Content Area */}
@@ -602,6 +753,15 @@ export default function App() {
       />
 
       <PrivacyPolicyModal isOpen={isPrivacyOpen} onClose={() => setIsPrivacyOpen(false)} />
+
+      {currentStudent && (
+        <EditProfileModal
+          isOpen={isEditProfileOpen}
+          onClose={() => setIsEditProfileOpen(false)}
+          currentUser={currentStudent}
+          onUpdateProfile={handleUpdateProfile}
+        />
+      )}
     </div>
   );
 }

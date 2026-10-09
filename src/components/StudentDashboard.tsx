@@ -9,6 +9,7 @@ import {
 } from '../utils/locationHelper';
 import { TicTacToeGame } from './TicTacToeGame';
 import { FacialScanAnalytics } from './FacialScanAnalytics';
+import { LiveConsultationChat } from './LiveConsultationChat';
 
 interface StudentDashboardProps {
   student: StudentProfile;
@@ -22,6 +23,7 @@ interface StudentDashboardProps {
   onOpenEmergency: () => void;
   onNavigateHome: () => void;
   onLogout: () => void;
+  onOpenEditProfile?: () => void;
 }
 
 interface ActivitySession {
@@ -49,9 +51,11 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   onOpenEmergency,
   onNavigateHome,
   onLogout,
+  onOpenEditProfile,
 }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeMenu, setActiveMenu] = useState<'dashboard' | 'scan' | 'curhat' | 'game' | 'journal' | 'counselor' | 'directory'>('dashboard');
+  const [activeMenu, setActiveMenu] = useState<'dashboard' | 'scan' | 'curhat' | 'game' | 'journal' | 'counselor' | 'chat_counselor' | 'directory'>('dashboard');
+  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
   const [activeTabWidget, setActiveTabWidget] = useState<'scan' | 'game'>('scan');
   const [searchQuery, setSearchQuery] = useState('');
   const [showNotificationPopup, setShowNotificationPopup] = useState(false);
@@ -494,7 +498,29 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                   </div>
                 </button>
 
-                {/* 6. Faskes Terdekat */}
+                {/* 6. Chat BK & Konselor (Realtime Web & Server) */}
+                <button
+                  onClick={() => {
+                    setActiveMenu('chat_counselor');
+                    setSidebarOpen(false);
+                  }}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-[13px] font-semibold transition-all cursor-pointer ${
+                    activeMenu === 'chat_counselor'
+                      ? 'bg-[#38BDF8]/20 text-[#38BDF8] border-l-4 border-[#38BDF8] font-bold shadow-xs'
+                      : 'text-slate-300 hover:bg-[#334155]/60 hover:text-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="material-symbols-outlined text-[19px] text-emerald-400">forum</span>
+                    <span>Chat BK &amp; Konselor</span>
+                  </div>
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    Live
+                  </span>
+                </button>
+
+                {/* 7. Faskes Terdekat */}
                 <button
                   onClick={() => {
                     setActiveMenu('directory');
@@ -548,30 +574,45 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
           </div>
         </div>
 
-        {/* Bottom User Profile */}
-        <div className="p-4 border-t border-[#334155] bg-[#0F172A]">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5 overflow-hidden">
-              <img
-                src={student.avatar}
-                alt={student.name}
-                className="w-9 h-9 rounded-full object-cover border border-[#38BDF8] shrink-0"
-              />
-              <div className="text-left overflow-hidden">
-                <span className="text-[13px] font-bold text-white block truncate leading-tight">
-                  {student.name}
-                </span>
-                <span className="text-[10px] text-slate-400 block truncate">
-                  {student.school}
-                </span>
-              </div>
+        {/* Bottom User Profile Card */}
+        <div className="p-4 border-t border-[#334155] bg-[#0F172A] space-y-3">
+          <div className="flex items-center gap-3">
+            <img
+              src={student.avatar}
+              alt={student.name}
+              className="w-10 h-10 rounded-full object-cover border-2 border-[#38BDF8] shrink-0 shadow-sm"
+            />
+            <div className="text-left overflow-hidden flex-1 min-w-0">
+              <span className="text-[13px] font-bold text-white block truncate leading-tight">
+                {student.name}
+              </span>
+              <span className="text-[10px] text-sky-400 font-semibold block truncate">
+                {student.role || 'Siswa SMA'}
+              </span>
+              <span className="text-[10px] text-slate-400 block truncate">
+                {student.school}
+              </span>
             </div>
+          </div>
+
+          <div className="flex items-center gap-2 pt-1">
+            {onOpenEditProfile && (
+              <button
+                onClick={onOpenEditProfile}
+                className="flex-1 py-1.5 px-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-sky-300 font-bold text-[11px] transition cursor-pointer flex items-center justify-center gap-1 border border-sky-500/20"
+                title="Edit Nama, Username & Password"
+              >
+                <span className="material-symbols-outlined text-[15px]">manage_accounts</span>
+                <span>Edit Akun</span>
+              </button>
+            )}
             <button
               onClick={onLogout}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-[#334155] transition-colors cursor-pointer"
-              title="Keluar / Logout"
+              className="py-1.5 px-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/25 text-rose-300 hover:text-rose-200 font-bold text-[11px] transition cursor-pointer flex items-center gap-1 border border-rose-500/30"
+              title="Keluar dari akun saat ini"
             >
-              <span className="material-symbols-outlined text-[18px]">logout</span>
+              <span className="material-symbols-outlined text-[15px]">logout</span>
+              <span>Keluar</span>
             </button>
           </div>
         </div>
@@ -759,6 +800,17 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                   {student.school}
                 </span>
               </div>
+              {onOpenEditProfile && (
+                <button
+                  type="button"
+                  onClick={onOpenEditProfile}
+                  className="px-2.5 py-1 rounded-full bg-[#E0F2FE] hover:bg-[#BAE6FD] text-[#0284C7] font-bold text-[11px] transition-colors cursor-pointer flex items-center gap-1 ml-1"
+                  title="Edit Nama, Username & Password"
+                >
+                  <span className="material-symbols-outlined text-[15px]">edit</span>
+                  <span className="hidden sm:inline">Edit Akun</span>
+                </button>
+              )}
             </div>
           </div>
         </header>
@@ -787,8 +839,18 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
             {/* Header Action Button */}
             <div className="flex flex-wrap items-center gap-3 shrink-0">
               <button
+                onClick={() => setActiveMenu('chat_counselor')}
+                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[14px] shadow-[0_8px_20px_rgba(16,185,129,0.35)] hover:shadow-[0_12px_24px_rgba(16,185,129,0.45)] active:scale-98 transition-all cursor-pointer group"
+              >
+                <span className="material-symbols-outlined text-[20px] text-white group-hover:scale-110 transition-transform">
+                  forum
+                </span>
+                <span>Chat BK &amp; Konselor 💬</span>
+              </button>
+
+              <button
                 onClick={handleSwitchToScan}
-                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full bg-white text-[#0284C7] font-bold text-[14px] shadow-[0_8px_20px_rgba(0,0,0,0.15)] hover:bg-[#F0F9FF] hover:shadow-[0_12px_24px_rgba(0,0,0,0.2)] active:scale-98 transition-all cursor-pointer group"
+                className="inline-flex items-center gap-2 px-5 py-3.5 rounded-full bg-white text-[#0284C7] font-bold text-[14px] shadow-[0_8px_20px_rgba(0,0,0,0.15)] hover:bg-[#F0F9FF] hover:shadow-[0_12px_24px_rgba(0,0,0,0.2)] active:scale-98 transition-all cursor-pointer group"
               >
                 <span className="material-symbols-outlined text-[20px] text-[#0284C7] group-hover:scale-110 transition-transform">
                   face
@@ -925,9 +987,39 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
         </section>
 
         {/* ========================================================= */}
-        {/* 5. MAIN CONTENT GRID (60% Game Widget & 40% History)     */}
+        {/* 5. LIVE CONSULTATION CHAT (IF SELECTED) OR MAIN WIDGETS   */}
         {/* ========================================================= */}
-        <section className="max-w-7xl w-full mx-auto px-6 sm:px-10 py-8 space-y-6">
+        {activeMenu === 'chat_counselor' ? (
+          <section className="max-w-7xl w-full mx-auto px-6 sm:px-10 py-6 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+              <button
+                type="button"
+                onClick={() => setActiveMenu('dashboard')}
+                className="inline-flex items-center gap-2 text-xs font-bold text-sky-700 hover:text-sky-900 bg-sky-50 hover:bg-sky-100 px-3.5 py-2 rounded-xl border border-sky-200 transition-colors cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+                <span>Kembali ke Widget Skrining &amp; Game</span>
+              </button>
+              <div className="text-right">
+                <span className="text-xs font-bold text-slate-800 block">Konsultasi Terhubung Server Real-Time</span>
+                <span className="text-[11px] text-emerald-600 font-semibold flex items-center justify-end gap-1">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  Guru BK &amp; Psikolog Aktif di Platform
+                </span>
+              </div>
+            </div>
+
+            <LiveConsultationChat
+              currentUser={student}
+              onBookAppointment={() => onOpenCounselor()}
+              onClose={() => setActiveMenu('dashboard')}
+              isEmbedded={false}
+            />
+          </section>
+        ) : null}
+
+        {/* 5. MAIN CONTENT GRID (60% Game Widget & 40% History) */}
+        <section className={`max-w-7xl w-full mx-auto px-6 sm:px-10 py-8 space-y-6 ${activeMenu === 'chat_counselor' ? 'hidden' : 'block'}`}>
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             {/* ===================================================== */}
             {/* LEFT WIDGET (60% width): Interactive Tool Tabs        */}
@@ -1068,13 +1160,20 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
               </div>
 
               {/* Bottom Quick Hub Buttons */}
-              <div className="pt-4 mt-4 border-t border-slate-100 grid grid-cols-2 gap-2">
+              <div className="pt-4 mt-4 border-t border-slate-100 grid grid-cols-3 gap-2">
                 <button
                   onClick={() => onOpenCurhat()}
                   className="py-2.5 px-3 rounded-xl bg-[#F0F9FF] hover:bg-[#E0F2FE] text-[#0284C7] font-bold text-[12px] border border-[#BAE6FD] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                 >
-                  <span className="material-symbols-outlined text-[16px]">forum</span>
+                  <span className="material-symbols-outlined text-[16px]">smart_toy</span>
                   <span>Curhat AI</span>
+                </button>
+                <button
+                  onClick={() => setActiveMenu('chat_counselor')}
+                  className="py-2.5 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-[12px] border border-emerald-300 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[16px]">forum</span>
+                  <span>Chat BK</span>
                 </button>
                 <button
                   onClick={onOpenJournal}
@@ -1331,6 +1430,23 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
             </div>
           </div>
         </section>
+
+        {/* Floating Chat BK & Konselor Button */}
+        <button
+          type="button"
+          onClick={() => {
+            setActiveMenu(activeMenu === 'chat_counselor' ? 'dashboard' : 'chat_counselor');
+          }}
+          className="fixed bottom-6 right-6 z-40 px-4 py-3 rounded-full bg-gradient-to-r from-emerald-500 to-sky-600 hover:from-emerald-600 hover:to-sky-700 text-white font-extrabold text-xs shadow-[0_10px_25px_rgba(14,165,233,0.35)] flex items-center gap-2 border-2 border-white transition-all hover:scale-105 active:scale-95 cursor-pointer"
+          title="Klik untuk membuka chat konsultasi langsung dengan Guru BK dan Psikolog"
+        >
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white"></span>
+          </span>
+          <span className="material-symbols-outlined text-[18px]">forum</span>
+          <span>{activeMenu === 'chat_counselor' ? 'Tutup Chat' : 'Chat Guru BK & Konselor'}</span>
+        </button>
       </div>
     </div>
   );

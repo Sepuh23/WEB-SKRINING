@@ -39,6 +39,7 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [formError, setFormError] = useState('');
 
   if (!isOpen) return null;
 
@@ -57,10 +58,11 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!topic.trim()) {
-      alert('Silakan tuliskan topik atau hal yang ingin dikonsultasikan.');
+      setFormError('Silakan tuliskan topik atau hal yang ingin dikonsultasikan terlebih dahulu.');
       return;
     }
 
+    setFormError('');
     setIsSubmitting(true);
 
     const newAppointment: Appointment = {
@@ -271,6 +273,12 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
 
             {/* Step 4: Topic Title */}
             <div>
+              {formError && (
+                <div className="mb-2 p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[16px]">error</span>
+                  <span>{formError}</span>
+                </div>
+              )}
               <label className="block text-[12px] font-bold text-[#111c2d] mb-1">
                 Topik Singkat Konsultasi: <span className="text-rose-500">*</span>
               </label>
@@ -278,7 +286,10 @@ export const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = (
                 type="text"
                 required
                 value={topic}
-                onChange={(e) => setTopic(e.target.value)}
+                onChange={(e) => {
+                  setTopic(e.target.value);
+                  if (formError) setFormError('');
+                }}
                 placeholder="Contoh: Kesulitan mengatur waktu belajar & merasa sering cemas saat ulangan"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-sky-400 focus:outline-none"
               />
